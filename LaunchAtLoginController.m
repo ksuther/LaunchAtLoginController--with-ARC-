@@ -76,7 +76,7 @@ void sharedFileListDidChange(LSSharedFileListRef inList, void *context)
         LSSharedFileListItemResolve(item, resolutionFlags, &currentItemURL, NULL);
         if (currentItemURL && CFEqual(currentItemURL, (__bridge CFTypeRef)(wantedURL))) {
             CFRelease(currentItemURL);
-            return item;
+            return (LSSharedFileListItemRef)CFRetain(item);
         }
         if (currentItemURL)
             CFRelease(currentItemURL);
@@ -87,17 +87,31 @@ void sharedFileListDidChange(LSSharedFileListRef inList, void *context)
 
 - (BOOL) willLaunchAtLogin: (NSURL*) itemURL
 {
-    return !![self findItemWithURL:itemURL inFileList:loginItems];
+    LSSharedFileListItemRef appItem = [self findItemWithURL:itemURL inFileList:loginItems];
+    BOOL hasAppItem = appItem != nil;
+
+    if (appItem) {
+        CFRelease(appItem);
+    }
+
+    return hasAppItem;
 }
 
 - (void) setLaunchAtLogin: (BOOL) enabled forURL: (NSURL*) itemURL
 {
     LSSharedFileListItemRef appItem = [self findItemWithURL:itemURL inFileList:loginItems];
     if (enabled && !appItem) {
-        LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemBeforeFirst,
-            NULL, NULL, (__bridge CFURLRef)itemURL, NULL, NULL);
+        LSSharedFileListItemRef item = LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemBeforeFirst, NULL, NULL, (__bridge CFURLRef)itemURL, NULL, NULL);
+
+        if (item) {
+            CFRelease(item);
+        }
     } else if (!enabled && appItem)
         LSSharedFileListItemRemove(loginItems, appItem);
+
+    if (appItem) {
+        CFRelease(appItem);
+    }
 }
 
 #pragma mark Basic Interface
